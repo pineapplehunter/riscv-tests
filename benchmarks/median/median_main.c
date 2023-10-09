@@ -21,20 +21,35 @@
 //--------------------------------------------------------------------------
 // Main
 
-int main( int argc, char* argv[] )
-{
-  int results_data[DATA_SIZE];
+int main(int argc, char *argv[]) {
+  short results_data[DATA_SIZE];
 
-#if PREALLOCATE
-  // If needed we preallocate everything in the caches
-  median( DATA_SIZE, input_data, results_data );
-#endif
+  // #if PREALLOCATE
+  //   // If needed we preallocate everything in the caches
+  //   median2(DATA_SIZE, input_data, results_data);
+  // #endif
 
   // Do the filter
   setStats(1);
-  median( DATA_SIZE, input_data, results_data );
+  median2(DATA_SIZE, input_data, results_data);
   setStats(0);
 
+  int threadid = read_csr(mhartid);
+  if (threadid == 0)
+    printf("median done\n");
+
   // Check the results
-  return verify( DATA_SIZE, results_data, verify_data );
+  if (threadid == 0) {
+    for (int i = 0; i < DATA_SIZE; i++)
+      printf("%d, ", results_data[i]);
+    printf("\n");
+    int res = verifyShort(DATA_SIZE, results_data, verify_data);
+    printf("verify done with %d\n", res);
+    return res;
+  } else {
+    while (1)
+      ;
+  }
 }
+
+thread_entry(int cid, int nc) {}

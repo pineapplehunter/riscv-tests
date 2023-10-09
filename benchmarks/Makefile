@@ -19,23 +19,23 @@ instbasedir = $(UCB_VLSI_HOME)/install
 
 bmarks = \
 	median \
-	qsort \
-	rsort \
-	towers \
-	vvadd \
-	memcpy \
-	multiply \
-	mm \
-	dhrystone \
-	spmv \
-	mt-vvadd \
-	mt-matmul \
-	mt-memcpy \
-	pmp \
-	vec-memcpy \
-	vec-daxpy \
-	vec-sgemm \
-	vec-strcmp \
+	# qsort \
+	# rsort \
+	# towers \
+	# vvadd \
+	# memcpy \
+	# multiply \
+	# mm \
+	# dhrystone \
+	# spmv \
+	# mt-vvadd \
+	# mt-matmul \
+	# mt-memcpy \
+	# pmp \
+	# vec-memcpy \
+	# vec-daxpy \
+	# vec-sgemm \
+	# vec-strcmp \
 
 #--------------------------------------------------------------------
 # Build rules
@@ -43,10 +43,12 @@ bmarks = \
 
 RISCV_PREFIX ?= riscv$(XLEN)-unknown-elf-
 RISCV_GCC ?= $(RISCV_PREFIX)gcc
-RISCV_GCC_OPTS ?= -DPREALLOCATE=1 -mcmodel=medany -static -std=gnu99 -O2 -ffast-math -fno-common -fno-builtin-printf -fno-tree-loop-distribute-patterns -march=rv$(XLEN)gcv -mabi=lp64d
+RISCV_GCC_OPTS ?= -DPREALLOCATE=1 -mcmodel=medany -static -std=gnu99 -O2 -ffast-math -fno-common -fno-builtin-printf -fno-tree-loop-distribute-patterns -march=rv$(XLEN)iafdc_zicsr -mabi=lp64d
 RISCV_LINK ?= $(RISCV_GCC) -T $(src_dir)/common/test.ld $(incs)
 RISCV_LINK_OPTS ?= -static -nostdlib -nostartfiles -lm -lgcc -T $(src_dir)/common/test.ld
 RISCV_OBJDUMP ?= $(RISCV_PREFIX)objdump --disassemble-all --disassemble-zeroes --section=.text --section=.text.startup --section=.text.init --section=.data
+OBJDUMP_LLVM ?= llvm-objdump --disassemble-all --disassemble-zeroes --section=.text --section=.text.startup --section=.text.init --section=.data
+RISCV_OBJCOPY ?= $(RISCV_PREFIX)objcopy
 RISCV_SIM ?= spike --isa=rv$(XLEN)gcv
 
 incs  += -I$(src_dir)/../env -I$(src_dir)/common $(addprefix -I$(src_dir)/, $(bmarks))
@@ -63,19 +65,35 @@ $(foreach bmark,$(bmarks),$(eval $(call compile_template,$(bmark))))
 # Build and run benchmarks on riscv simulator
 
 bmarks_riscv_bin  = $(addsuffix .riscv,  $(bmarks))
+bmarks_riscv_hex  = $(addsuffix .hex,  $(bmarks))
+bmarks_riscv_hex64  = $(addsuffix .64.hex,  $(bmarks))
+bmarks_riscv_binary  = $(addsuffix .binary,  $(bmarks))
 bmarks_riscv_dump = $(addsuffix .riscv.dump, $(bmarks))
+bmarks_riscv_dump_llvm = $(addsuffix .riscv.llvm.dump, $(bmarks))
 bmarks_riscv_out  = $(addsuffix .riscv.out,  $(bmarks))
 
 $(bmarks_riscv_dump): %.riscv.dump: %.riscv
 	$(RISCV_OBJDUMP) $< > $@
 
+$(bmarks_riscv_dump_llvm): %.riscv.llvm.dump: %.riscv
+	$(OBJDUMP_LLVM) $< > $@
+
 $(bmarks_riscv_out): %.riscv.out: %.riscv
 	$(RISCV_SIM) $< > $@
 
-riscv: $(bmarks_riscv_dump)
+%.binary: %.riscv
+	$(RISCV_OBJCOPY) $< -O binary $@
+
+%.hex: %.binary
+	od -An -t x1 $< -w1 -v | tr -d " " > $@
+
+%.64.hex: %.binary
+	od -An -t x8 $< -w8 -v | tr -d " " > $@
+
+riscv: $(bmarks_riscv_dump) $(bmarks_riscv_hex) $(bmarks_riscv_hex64) $(bmarks_riscv_dump_llvm)
 run: $(bmarks_riscv_out)
 
-junk += $(bmarks_riscv_bin) $(bmarks_riscv_dump) $(bmarks_riscv_hex) $(bmarks_riscv_out)
+junk += $(bmarks_riscv_bin) $(bmarks_riscv_dump) $(bmarks_riscv_hex) $(bmarks_riscv_hex64) $(bmarks_riscv_out)
 
 #------------------------------------------------------------
 # Default
@@ -91,7 +109,7 @@ latest_install = $(shell ls -1 -d $(instbasedir)/$(instname)* | tail -n 1)
 
 install:
 	mkdir $(install_dir)
-	cp -r $(bmarks_riscv_bin) $(bmarks_riscv_dump) $(install_dir)
+	cp -r $(bmarks_riscv_bin) $(bmarks_riscv_dump) $(bmarks_riscv_hex) $(bmarks_riscv_hex64) $(install_dir)
 
 install-link:
 	rm -rf $(instbasedir)/$(instname)
