@@ -1039,8 +1039,10 @@ class InterruptTest(GdbSingleHartTest):
             local = self.gdb.p("local")
             if interrupt_count > 1000 and \
                     local > 1000:
+                self.disable_timer()
                 return
 
+        self.disable_timer()
         assertGreater(interrupt_count, 1000)
         assertGreater(local, 1000)
 
@@ -1191,6 +1193,8 @@ class MulticoreRunAllHaltOne(GdbTest):
         time.sleep(1)
         self.gdb.p("buf", fmt="")
 
+        self.disable_timer(interrupt=True)
+
 class MulticoreRtosSwitchActiveHartTest(GdbTest):
     compile_args = ("programs/multicore.c", "-DMULTICORE")
 
@@ -1219,6 +1223,8 @@ class MulticoreRtosSwitchActiveHartTest(GdbTest):
             assertIn("hit Breakpoint", output)
             assertIn("set_trap_handler", output)
             assertNotIn("received signal SIGTRAP", output)
+
+        self.disable_timer()
 
 class SmpSimultaneousRunHalt(GdbTest):
     compile_args = ("programs/run_halt_timing.S", "-DMULTICORE")
@@ -1830,8 +1836,7 @@ class UnavailableMultiTest(GdbTest):
         # Other hart should have become unavailable.
         if self.target.support_unavailable_control:
             self.server.wait_until_running(self.target.harts)
-            self.server.command(
-                    f"riscv dmi_write 0x1f 0x{(1<<self.hart.id)&0x3:x}")
+            self.server.set_available([self.hart])
         self.gdb.expect(r"\S+ became unavailable.")
         self.gdb.interrupt()
 
@@ -1901,8 +1906,8 @@ class UnavailableRunTest(ProgramTest):
         self.gdb.c(wait=False)
         if self.target.support_unavailable_control:
             self.server.wait_until_running([self.hart])
-            self.server.command(
-                    f"riscv dmi_write 0x1f 0x{(~(1<<self.hart.id))&0x3:x}")
+            self.server.set_available(
+                [h for h in self.target.harts if h != self.hart])
         self.gdb.expect(r"\S+ became unavailable.")
         self.gdb.interrupt()
         # gdb might automatically switch to the available hart.
@@ -1933,14 +1938,14 @@ class UnavailableCycleTest(ProgramTest):
         self.gdb.p("$pc=loop_forever")
         self.gdb.c(wait=False)
         self.server.wait_until_running([self.hart])
-        self.server.command(
-                f"riscv dmi_write 0x1f 0x{(~(1<<self.hart.id))&0x3:x}")
+        self.server.set_available(
+                [h for h in self.target.harts if h != self.hart])
         self.gdb.expect(r"\S+ became unavailable.")
 
         # Now send a DMI command through OpenOCD to make the hart available
         # again.
 
-        self.server.command("riscv dmi_write 0x1f 0x3")
+        self.server.set_available(self.target.harts)
         self.gdb.expect(r"\S+ became available")
         self.gdb.interrupt()
         self.gdb.p("$pc")

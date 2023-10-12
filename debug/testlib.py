@@ -483,7 +483,8 @@ class Openocd:
         headers = lines[0].split()
         data = []
         for line in lines[2:]:
-            data.append(dict(zip(headers, line.split()[1:])))
+            if line.strip():
+                data.append(dict(zip(headers, line.split()[1:])))
         return data
 
     def wait_until_running(self, harts):
@@ -495,6 +496,30 @@ class Openocd:
                 return
             if time.time() - start > self.timeout:
                 raise TestLibError("Timed out waiting for targets to run.")
+
+    def set_available(self, harts):
+        """Set the given harts to available, and any others to be unavailable.
+        This uses a custom DMI register (0x1f) that is only implemented in
+        spike."""
+        available_mask = 0
+        for hart in harts:
+            available_mask |= 1 << hart.id
+        self.command(f"riscv dmi_write 0x1f 0x{available_mask:x}")
+
+        # Wait until it happened.
+        start = time.time()
+        while True:
+            currently_available = set()
+            currently_unavailable = set()
+            for i, target in enumerate(self.targets()):
+                if target["State"] == "unavailable":
+                    currently_unavailable.add(i)
+                else:
+                    currently_available.add(i)
+            if currently_available == set(hart.id for hart in harts):
+                return
+            if time.time() - start > self.timeout:
+                raise TestLibError("Timed out waiting for hart availability.")
 
 class OpenocdCli:
     def __init__(self, port=4444):
@@ -795,6 +820,7 @@ class Gdb:
         timeout = max(1, ops) * self.timeout
         self.active_child.sendline(command)
         try:
+            self.active_child.expect(re.escape(command), timeout=timeout)
             self.active_child.expect("\n", timeout=timeout)
         except pexpect.exceptions.TIMEOUT as exc:
             raise CommandSendTimeout(command) from exc
@@ -896,9 +922,10 @@ class Gdb:
         return self.active_child.before.strip().decode()
 
     def interrupt_all(self):
-        for child in self.children:
-            self.select_child(child)
-            self.interrupt()
+        with PrivateState(self):
+            for child in self.children:
+                self.select_child(child)
+                self.interrupt()
 
     def x(self, address, size='w', count=1):
         output = self.command(f"x/{count}{size} {address}", ops=count / 16)
@@ -1058,11 +1085,15 @@ def load_excluded_tests(excluded_tests_file, target_name):
 
 def run_all_tests(module, target, parsed):
     todo = []
+    if not parsed.hart is None:
+        target_hart = target.harts[parsed.hart]
+    else:
+        target_hart = None
     for name in dir(module):
         definition = getattr(module, name)
         if isinstance(definition, type) and hasattr(definition, 'test') and \
                 (not parsed.test or any(test in name for test in parsed.test)):
-            todo.append((name, definition, None))
+            todo.append((name, definition, target_hart))
 
     if parsed.list_tests:
         for name, definition, hart in todo:
@@ -1130,7 +1161,10 @@ def run_tests(parsed, target, todo):
             result = instance.run()
             log_fd.write(f"Result: {result}\n")
             log_fd.write(f"Logfile: {log_name}\n")
-            log_fd.write(f"Reproduce: {sys.argv[0]} {parsed.target} {name}\n")
+            log_fd.write(f"Reproduce: {sys.argv[0]} {parsed.target} {name}")
+            if len(target.harts) > 1:
+                log_fd.write(f" --hart {instance.hart.id}")
+            log_fd.write("\n")
         finally:
             sys.stdout = real_stdout
             log_fd.write(f"Time elapsed: {time.time() - start:.2f}s\n")
@@ -1189,6 +1223,9 @@ def add_test_run_options(parser):
             help="Specify yaml file listing tests to exclude")
     parser.add_argument("--target-timeout",
             help="Override the base target timeout.", default=None, type=int)
+    parser.add_argument("--hart",
+            help="Run tests against this hart in multihart tests.",
+            default=None, type=int)
 
 def header(title, dash='-', length=78):
     if title:
@@ -1215,7 +1252,7 @@ class BaseTest:
 
     def __init__(self, target, hart=None):
         self.target = target
-        if hart:
+        if not hart is None:
             self.hart = hart
         else:
             import random   # pylint: disable=import-outside-toplevel
@@ -1410,6 +1447,13 @@ class GdbTest(BaseTest):
         except CouldNotFetch:
             # PMP registers are optional
             pass
+
+    def disable_timer(self, interrupt=False):
+        for hart in self.target.harts:
+            self.gdb.select_hart(hart)
+            if interrupt:
+                self.gdb.interrupt()
+            self.gdb.p("$mie=$mie & ~0x80")
 
     def exit(self, expected_result=10):
         self.gdb.command("delete")
