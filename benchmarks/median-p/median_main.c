@@ -32,7 +32,7 @@ int main(int argc, char *argv[]) {
 
   // Do the filter
   setStats(1);
-  median1(DATA_SIZE, input_data, results_data);
+  median(DATA_SIZE, input_data, results_data);
   setStats(0);
 
   int threadid = read_csr(mhartid);

@@ -12,3 +12,14 @@
 /config.log
 /config.status
 /build
+
+# Devenv
+.devenv*
+devenv.local.nix
+
+# direnv
+.direnv
+
+# pre-commit
+.pre-commit-config.yaml
+

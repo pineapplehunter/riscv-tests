@@ -109,7 +109,7 @@ void _init(int cid, int nc) {
     if (counters[i])
       pbuf += sprintf(pbuf, "%s = %d\n", counter_names[i], counters[i]);
   if (pbuf != buf)
-    printstr(buf);
+    printf("%s\n", buf);
 
   exit(ret);
 }
