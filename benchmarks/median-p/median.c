@@ -37,8 +37,7 @@ void median(int n, DTYPE input[], DTYPE results[]) {
 
     unsigned long res = o1 | o2 | o3;
     results[i * 4 + 1] = (short)(res >> 0);
-    results[i * 4 + 2] = (short)(res >> 16);
-    results[i * 4 + 3] = (short)(res >> 32);
+    *((int *)&results[i * 4 + 2]) = (int)(res >> 16);
     results[i * 4 + 4] = (short)(res >> 48);
   }
 
