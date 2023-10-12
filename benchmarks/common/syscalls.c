@@ -34,8 +34,8 @@ static uintptr_t syscall(uintptr_t which, uint64_t arg0, uint64_t arg1,
 }
 
 #define NUM_COUNTERS 2
-static uintptr_t counters[NUM_COUNTERS];
-static char *counter_names[NUM_COUNTERS];
+static uintptr_t counters[NUM_COUNTERS + 8];
+static char *counter_names[NUM_COUNTERS + 8];
 
 void setStats(int enable) {
   int i = 0;
@@ -45,10 +45,10 @@ void setStats(int enable) {
       ;                                                                        \
     uintptr_t csr = read_csr(name);                                            \
     if (!enable) {                                                             \
-      csr -= counters[i];                                                      \
-      counter_names[i] = #name;                                                \
+      csr -= counters[i + 4];                                                  \
+      counter_names[i + 4] = #name;                                            \
     }                                                                          \
-    counters[i++] = csr;                                                       \
+    counters[i++ + 4] = csr;                                                   \
   } while (0)
 
   if (read_csr(mhartid) == 0) {
@@ -108,8 +108,8 @@ void _init(int cid, int nc) {
   char buf[NUM_COUNTERS * 32] __attribute__((aligned(64)));
   char *pbuf = buf;
   for (int i = 0; i < NUM_COUNTERS; i++)
-    if (counters[i])
-      pbuf += sprintf(pbuf, "%s = %d\n", counter_names[i], counters[i]);
+    if (counters[i + 4])
+      pbuf += sprintf(pbuf, "%s = %d\n", counter_names[i + 4], counters[i + 4]);
   if (pbuf != buf)
     printf("%s\n", buf);
   printf("end\n");

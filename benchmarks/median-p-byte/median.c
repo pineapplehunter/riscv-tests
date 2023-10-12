@@ -13,7 +13,7 @@
                : [in1_] "r"(in1), [in2_] "r"(in2))
 
 void median(int n, DTYPE input[], DTYPE results[]) {
-  for (int i = 0; i < 100; i++) {
+  for (int i = 0; i < 50; i++) {
     unsigned long v1 = ((long *)input)[i];
     unsigned long vt = ((long *)input)[i + 1];
 
@@ -36,6 +36,13 @@ void median(int n, DTYPE input[], DTYPE results[]) {
     unsigned long o3 = v3 & m3;
 
     unsigned long res = o1 | o2 | o3;
+    unsigned long res_top = res >> 56;
+
+    results[i * 8 + 1] = (unsigned char)(res >> 0);
+    *((short *)&results[i * 8 + 2]) = (unsigned short)(res >> 8);
+    *((int *)&results[i * 8 + 4]) = (unsigned int)(res >> 24);
+    results[i * 8 + 8] = (unsigned char)res_top;
+
     // results[i * 8 + 1] = (char)(res >> 0);
     // results[i * 8 + 2] = (char)(res >> 8);
     // results[i * 8 + 3] = (char)(res >> 16);
@@ -44,7 +51,6 @@ void median(int n, DTYPE input[], DTYPE results[]) {
     // results[i * 8 + 6] = (char)(res >> 40);
     // results[i * 8 + 7] = (char)(res >> 48);
     // results[i * 8 + 8] = (char)(res >> 56);
-    *((long*)&results[i*8+1]) = res;
   }
 
   results[0] = 0;

@@ -43,7 +43,7 @@ int main(int argc, char *argv[]) {
   if (threadid == 0) {
     for (int i = 0; i < 20; i++) {
       for (int j = 0; j < 20; j++)
-        printf("%d, ", results_data[i * 20 + j]);
+        printf("%d, ", (int)results_data[i * 20 + j]);
       printf("\n");
     }
     int res = verifyByte(DATA_SIZE, results_data, verify_data);

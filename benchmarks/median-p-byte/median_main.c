@@ -21,7 +21,7 @@
 //--------------------------------------------------------------------------
 // Main
 
-static short results_data[DATA_SIZE];
+static unsigned char results_data[DATA_SIZE];
 
 int main(int argc, char *argv[]) {
 
@@ -46,7 +46,7 @@ int main(int argc, char *argv[]) {
         printf("%d, ", results_data[i * 20 + j]);
       printf("\n");
     }
-    int res = verifyShort(DATA_SIZE, results_data, verify_data);
+    int res = verifyByte(DATA_SIZE, results_data, verify_data);
     printf("verify done with %d\n", res);
     return res;
   } else {
