@@ -22,6 +22,8 @@ bmarks = \
 	median-mt \
 	median-p \
 	median-p-mt \
+	median-p-byte \
+	median-p-mt-byte \
 	# qsort \
 	# rsort \
 	# towers \

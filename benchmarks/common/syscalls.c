@@ -51,8 +51,10 @@ void setStats(int enable) {
     counters[i++] = csr;                                                       \
   } while (0)
 
-  READ_CTR(mcycle);
-  READ_CTR(minstret);
+  if (read_csr(mhartid) == 0) {
+    READ_CTR(mcycle);
+    READ_CTR(minstret);
+  }
 
 #undef READ_CTR
 }
@@ -110,6 +112,7 @@ void _init(int cid, int nc) {
       pbuf += sprintf(pbuf, "%s = %d\n", counter_names[i], counters[i]);
   if (pbuf != buf)
     printf("%s\n", buf);
+  printf("end\n");
 
   exit(ret);
 }
